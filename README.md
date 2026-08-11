@@ -6,8 +6,10 @@
 
 作成: 2026-07-01〜07-03 / 羽田空港での実利用がきっかけ。
 
-**公開URL（静的ビュー）**: https://vibe-55-haneda-flight-board.vercel.app  
-**フル機能版（ローカル）**: `python3 server.py` → http://localhost:8787
+**公開URL**: https://vibe-55-haneda-flight-board.vercel.app  
+（GitHub Actions が**毎時**羽田公式からダイヤを取得しコミット → Vercel が自動デプロイ。公式サイトへの負荷を1時間1回に抑えた構成）
+
+**ローカル版**: `python3 server.py` → http://localhost:8787（🔄 更新ボタンで手動取得可）
 
 ---
 
@@ -44,8 +46,8 @@ python3 server.py
 ### 自動更新（任意）
 
 ```bash
-bash auto_update.sh          # 10分ごとに自動取得
-bash auto_update.sh 300      # 5分ごとに取得する場合
+bash auto_update.sh          # 1時間ごとに自動取得（負荷配慮の既定値）
+bash auto_update.sh 600      # 短くしたい場合（例: 10分ごと）
 ```
 
 画面は5分ごとに自動リロードする（タブ・フィルタ・風向は保持）。
