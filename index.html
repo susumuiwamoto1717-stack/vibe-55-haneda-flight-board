@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HANEDA FLIGHT INFORMATION</title>
+<style>
+  :root{
+    --board:#05070c; --tile:#0c111d; --tile2:#131a2b; --line:#1c2740;
+    --amber:#f7b733; --amberdim:#8a6a24; --green:#37e07a; --red:#ff5a5a;
+    --white:#eef3fb; --dim:#5f7196; --blue:#5aa9ff;
+    --rwyA:#5aa9ff; --rwyB:#f7b733; --rwyC:#b58bff; --rwyD:#37e07a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--board);color:var(--white);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+    -webkit-text-size-adjust:100%;}
+  .mono{font-family:"SF Mono","Roboto Mono",ui-monospace,Menlo,Consolas,monospace}
+
+  /* 掲示板ヘッダ */
+  .board-head{background:linear-gradient(#0a1020,#05070c);border-bottom:2px solid var(--amber);
+    padding:12px 16px;position:sticky;top:0;z-index:20}
+  .board-head .top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+  .board-head h1{margin:0;font-size:18px;letter-spacing:1px}
+  .board-head .en{color:var(--amber);font-size:12px;letter-spacing:3px;font-weight:700}
+  .clock{text-align:right;line-height:1.1}
+  .refresh{background:var(--amber);color:#1a1200;border:0;border-radius:8px;padding:7px 12px;
+    font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}
+  .refresh:disabled{opacity:.6}
+  .clock .t{font-size:22px;font-weight:700;color:var(--amber)}
+  .clock .d{font-size:11px;color:var(--dim)}
+  #srcBanner{color:var(--dim);font-size:11px;margin-top:6px}
+
+  .wrap{max-width:820px;margin:0 auto;padding:10px 10px 60px}
+
+  /* コントロール */
+  .ctrl{background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  label{font-size:11px;color:var(--dim);display:block;margin-bottom:3px}
+  select,input{background:var(--tile2);color:var(--white);border:1px solid var(--line);
+    border-radius:8px;padding:8px 9px;font-size:15px;width:100%}
+  .col{flex:1;min-width:110px}
+  .seg{display:flex;background:var(--tile2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;background:transparent;color:var(--dim);border:0;padding:8px 4px;font-size:13px}
+  .seg button.on{background:var(--amber);color:#1a1200;font-weight:700}
+
+  /* ARR/DEP 大タブ */
+  .bigtabs{display:flex;gap:8px;margin:10px 0}
+  .bigtabs button{flex:1;background:var(--tile);color:var(--dim);border:1px solid var(--line);
+    border-radius:8px;padding:12px;font-size:16px;font-weight:800;letter-spacing:1px}
+  .bigtabs button.on{background:var(--amber);color:#1a1200;border-color:var(--amber)}
+  .bigtabs .sub{font-size:10px;letter-spacing:2px;display:block;opacity:.8}
+
+  /* 運用ストリップ */
+  .opstrip{background:var(--tile);border:1px solid var(--line);border-left:4px solid var(--amber);
+    border-radius:8px;padding:8px 10px;margin-bottom:8px}
+  .opstrip .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .opbadge{font-weight:800;font-size:13px;color:var(--amber);letter-spacing:1px}
+  .opnote{color:var(--dim);font-size:11px}
+  .rwytiles{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+  .rwytile{background:var(--tile2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;min-width:96px}
+  .rwytile .k{font-size:10px;color:var(--dim)}
+  .rwytile b{font-size:14px}
+  .A{border-left:3px solid var(--rwyA)}.B{border-left:3px solid var(--rwyB)}
+  .C{border-left:3px solid var(--rwyC)}.D{border-left:3px solid var(--rwyD)}
+
+  .subrow{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+
+  /* 掲示板テーブル */
+  .board{background:var(--board);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  thead th{background:#0a1020;color:var(--dim);font-size:10px;letter-spacing:1px;font-weight:700;
+    text-align:left;padding:7px 8px;border-bottom:1px solid var(--amberdim);position:sticky;top:0}
+  tbody td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+  .t-time{font-size:17px;font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums}
+  .t-rev{font-size:11px;color:var(--red);font-weight:700}
+  .t-fl{font-size:15px;font-weight:700;color:var(--white)}
+  .t-cs{font-size:10px;color:var(--dim)}
+  .t-type{font-size:10px;color:var(--blue);font-weight:600;margin-top:1px}
+  .t-al{font-size:11px;color:var(--dim);margin-top:1px}
+  .dir{font-size:13px;font-weight:800;white-space:nowrap}
+  .dir.arr{color:var(--green)} .dir.dep{color:var(--amber)}
+  .rwyseg button{display:flex;flex-direction:column;align-items:center;line-height:1.1;padding:6px 2px}
+  .rwyseg .role{font-size:9px;font-weight:400;opacity:.85;margin-top:2px}
+  .t-dest{font-size:15px;color:var(--amber);font-weight:600}
+  .t-via{font-size:10px;color:var(--dim)}
+  .t-gate{font-size:15px;font-weight:700;color:var(--white);text-align:center}
+  .t-term{font-size:10px;color:var(--dim);text-align:center}
+  .rwybox{display:inline-block;padding:3px 7px;border-radius:5px;font-size:12px;font-weight:800;letter-spacing:.5px}
+  .rA{background:#0f2b4a;color:#9cd0ff}.rB{background:#3a2c0a;color:#ffd97a}
+  .rC{background:#291d45;color:#d3b8ff}.rD{background:#0d3324;color:#86e6b6}
+  .est{color:var(--dim);font-size:10px}
+  .st{font-size:12px;font-weight:700}
+  .st.ontime{color:var(--green)} .st.dep{color:var(--dim)} .st.delay{color:var(--amber)}
+  .st.canceled{color:var(--red)}
+  .st .reason{display:block;font-size:10px;font-weight:400}
+  tr.now td{border-top:2px solid var(--amber)}
+  tr.canceled td{background:#1a0a0d}
+  tr.canceled .t-time,tr.canceled .t-dest,tr.canceled .t-fl{color:#c98}
+  .daysep td{background:#0a1020;color:var(--dim);font-weight:800;font-size:12px;
+    letter-spacing:1px;padding:7px 10px;border-bottom:1px solid var(--amberdim)}
+  .daysep.next td{color:var(--amber)}
+
+  details{background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:12px}
+  summary{cursor:pointer;color:var(--amber);font-size:13px}
+  code{background:#0a1020;padding:1px 5px;border-radius:4px;color:var(--amber);font-size:12px}
+  textarea{width:100%;height:110px;background:var(--tile2);color:var(--white);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12px}
+  .btn{background:var(--amber);color:#1a1200;border:0;border-radius:8px;padding:9px 14px;font-weight:700;font-size:14px}
+  .btn.sub{background:var(--tile2);color:var(--white);border:1px solid var(--line)}
+  .foot{color:var(--dim);font-size:11px;line-height:1.6;margin-top:10px}
+  .maplink{margin-left:auto;background:var(--tile2);color:var(--amber);border:1px solid var(--amberdim);
+    border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;display:flex;
+    align-items:center;justify-content:center;padding:14px}
+  .modal-card{background:var(--tile);border:1px solid var(--amberdim);border-radius:14px;
+    padding:12px;max-width:440px;width:100%;max-height:92vh;overflow:auto}
+  .modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .mclose{background:var(--tile2);color:var(--white);border:1px solid var(--line);border-radius:8px;
+    width:32px;height:32px;font-size:14px;cursor:pointer}
+  #rwyMap{width:100%;height:auto;background:#08111f;border:1px solid var(--line);border-radius:10px}
+  .maplegend{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .lg{font-size:12px;padding:4px 8px;border-radius:6px;background:var(--tile2);border:1px solid var(--line)}
+  .lg b{font-size:13px}
+  .mapnote{color:var(--dim);font-size:10px;margin-top:8px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="board-head">
+  <div class="top">
+    <div>
+      <div class="en">✈ HANEDA · FLIGHT INFORMATION</div>
+      <h1>羽田空港 発着案内 <span style="font-size:12px;color:var(--dim)">滑走路予測つき</span></h1>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <button id="refreshBtn" class="refresh">🔄 更新</button>
+      <div class="clock mono">
+        <div class="t" id="clkTime">--:--</div>
+        <div class="d" id="clkDate">----/--/--</div>
+      </div>
+    </div>
+  </div>
+  <div id="srcBanner"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- コントロール -->
+  <div class="ctrl">
+    <div class="row">
+      <div class="col"><label>表示日</label><input type="date" id="date"></div>
+      <div class="col"><label>基準時刻</label><input type="time" id="time"></div>
+    </div>
+    <div style="height:8px"></div>
+    <label>風向き（滑走路運用の決め手）</label>
+    <div class="seg" id="windSeg">
+      <button data-w="north" class="on">北風運用</button>
+      <button data-w="south">南風運用</button>
+      <button data-w="auto">風向°で自動</button>
+    </div>
+    <div id="degWrap" style="display:none;margin-top:8px">
+      <label>風向（度・METARの風向を入力：例 200）</label>
+      <input type="number" id="deg" min="0" max="360" placeholder="0〜360">
+    </div>
+  </div>
+
+  <!-- ビュー切替 -->
+  <div class="bigtabs">
+    <button id="tabArr" class="on">ARRIVALS<span class="sub">到着</span></button>
+    <button id="tabDep">DEPARTURES<span class="sub">出発</span></button>
+    <button id="tabRwy">RUNWAY<span class="sub">滑走路別・発着</span></button>
+  </div>
+  <!-- 滑走路選択（滑走路別ビューのみ） -->
+  <div class="subrow" id="rwySeg" style="display:none">
+    <div class="seg rwyseg" style="flex:1">
+      <button data-rw="all" class="on">全<span class="role"> </span></button>
+      <button data-rw="A">A<span class="role" id="roleA"></span></button>
+      <button data-rw="B">B<span class="role" id="roleB"></span></button>
+      <button data-rw="C">C<span class="role" id="roleC"></span></button>
+      <button data-rw="D">D<span class="role" id="roleD"></span></button>
+    </div>
+  </div>
+
+  <!-- 運用ストリップ -->
+  <div class="opstrip">
+    <div class="hd">
+      <span class="opbadge" id="opBadge">—</span>
+      <span class="opnote" id="opNote"></span>
+      <button class="maplink" id="openMap">🗺 滑走路の配置図</button>
+    </div>
+    <div class="rwytiles" id="rwyBox"></div>
+  </div>
+
+  <!-- フィルタ -->
+  <div class="subrow">
+    <div class="seg" id="regSeg" style="flex:2">
+      <button data-r="all" class="on">全て</button>
+      <button data-r="dom">国内線</button>
+      <button data-r="int">国際線</button>
+    </div>
+    <label style="flex:1;display:flex;align-items:center;gap:6px;margin:0;color:var(--dim);font-size:12px">
+      <input type="checkbox" id="onlyFuture" style="width:auto" checked>基準〜12h先（日跨ぎ）
+    </label>
+  </div>
+
+  <!-- 掲示板 -->
+  <div class="board">
+    <div style="overflow:auto">
+      <table id="tbl"><thead></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="foot">
+    ※ 滑走路（RWY）は国交省公開の運用パターンからの<b>予測・目安</b>です（便ごとの割当は管制判断）。TIME=定刻、赤字=変更/欠航。STATUS の理由は羽田公式データより。
+  </div>
+
+  <!-- 滑走路 配置図モーダル -->
+  <div id="mapModal" class="modal" style="display:none">
+    <div class="modal-card">
+      <div class="modal-hd">
+        <b>羽田空港 滑走路 配置図</b>
+        <button id="closeMap" class="mclose">✕</button>
+      </div>
+      <svg id="rwyMap" viewBox="0 0 360 380" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="360" height="380" fill="#08111f"/>
+        <!-- 本土（西側） -->
+        <path d="M0,0 L110,0 Q70,110 120,200 Q80,300 55,380 L0,380 Z" fill="#0d1b2c"/>
+        <text x="20" y="200" fill="#42506e" font-size="11" transform="rotate(-90 20,200)">本土（大田区）側</text>
+        <!-- 東京湾 -->
+        <text x="270" y="60" font-size="11" fill="#33507a">東京湾</text>
+        <!-- 方位 -->
+        <g transform="translate(330,32)">
+          <line x1="0" y1="14" x2="0" y2="-8" stroke="#f7b733" stroke-width="2"/>
+          <path d="M0,-12 L4,-4 L-4,-4 Z" fill="#f7b733"/>
+          <text x="-4" y="26" fill="#f7b733" font-size="11" font-weight="700">N</text>
+        </g>
+        <!-- A滑走路 16R/34L -->
+        <line id="mapA" x1="122" y1="70" x2="140" y2="250" stroke="#5aa9ff" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="106" cy="62" r="11" fill="#12314f" stroke="#5aa9ff"/><text x="106" y="66" fill="#9cd0ff" font-size="12" font-weight="700" text-anchor="middle">A</text>
+        <text x="150" y="66" fill="#7f93b5" font-size="10">16R</text>
+        <text x="150" y="258" fill="#7f93b5" font-size="10">34L</text>
+        <!-- C滑走路 16L/34R -->
+        <line id="mapC" x1="198" y1="70" x2="216" y2="250" stroke="#b58bff" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="182" cy="62" r="11" fill="#291d45" stroke="#b58bff"/><text x="182" y="66" fill="#d3b8ff" font-size="12" font-weight="700" text-anchor="middle">C</text>
+        <text x="226" y="66" fill="#7f93b5" font-size="10">16L</text>
+        <text x="226" y="258" fill="#7f93b5" font-size="10">34R</text>
+        <!-- B滑走路 04/22 (NE-SW) -->
+        <line id="mapB" x1="112" y1="322" x2="252" y2="188" stroke="#f7b733" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="98" cy="330" r="11" fill="#3a2c0a" stroke="#f7b733"/><text x="98" y="334" fill="#ffd97a" font-size="12" font-weight="700" text-anchor="middle">B</text>
+        <text x="90" y="316" fill="#7f93b5" font-size="10">04</text>
+        <text x="258" y="184" fill="#7f93b5" font-size="10">22</text>
+        <!-- D滑走路 05/23 (沖合・ENE-WSW) -->
+        <line id="mapD" x1="208" y1="345" x2="342" y2="312" stroke="#37e07a" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="196" cy="356" r="11" fill="#0d3324" stroke="#37e07a"/><text x="196" y="360" fill="#86e6b6" font-size="12" font-weight="700" text-anchor="middle">D</text>
+        <text x="196" y="336" fill="#7f93b5" font-size="10">05</text>
+        <text x="330" y="304" fill="#7f93b5" font-size="10">23</text>
+        <text x="250" y="360" fill="#33507a" font-size="10">多摩川河口／沖合</text>
+      </svg>
+      <div id="mapLegend" class="maplegend"></div>
+      <div class="mapnote">※ 位置関係を表した略図です（正確な縮尺・形状ではありません）。太枠＝選択中の滑走路、色つき＝現在の運用で使用中。</div>
+    </div>
+  </div>
+
+  <!-- 更新方法 -->
+  <details>
+    <summary>ダイヤの更新方法 / データ差し替え</summary>
+    <p class="foot"><b>最新ダイヤ（今日＋翌日）に更新</b>：このフォルダで実行後、ページ再読み込み<br>
+    <code>python3 fetch_haneda.py</code>（日付指定：<code>python3 fetch_haneda.py 20260703 3</code> ＝指定日から3日分）</p>
+    <textarea id="jsonIn" placeholder='[{"type":"arr","time":"14:35","fl":"NH060","ap":"那覇","term":"T2","gate":"","region":"dom"}]'></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="applyJson">反映</button>
+      <button class="btn sub" id="exportJson">現在データを表示</button>
+      <button class="btn sub" id="resetJson">公式/サンプルに戻す</button>
+    </div>
+  </details>
+</div>
+
+<script src="flights_data.js" onerror="window.HND_FLIGHTS=null"></script>
+<script>
+/* ===== 滑走路運用ロジック（公開ルールベース） ===== */
+// 滑走路: A=16R/34L, B=04/22, C=16L/34R, D=05/23
+const RWY = {
+  A:{label:"A", cls:"A", pill:"rA"}, B:{label:"B", cls:"B", pill:"rB"},
+  C:{label:"C", cls:"C", pill:"rC"}, D:{label:"D", cls:"D", pill:"rD"},
+};
+/* 航空会社コード→日本語名（無いものはコードのまま表示） */
+const AIRLINE = {
+  ANA:"全日空", JAL:"日本航空", SKY:"スカイマーク", SNJ:"ソラシドエア", SFJ:"スターフライヤー",
+  ADO:"AIRDO", APJ:"ピーチ", JJP:"ジェットスター", TBA:"アマクサ", ORC:"オリエンタルエア",
+  DAL:"デルタ航空", UAL:"ユナイテッド航空", AAL:"アメリカン航空", HAL:"ハワイアン航空",
+  CCA:"中国国際航空", CES:"中国東方航空", CSN:"中国南方航空", CQH:"春秋航空", CHH:"海南航空",
+  CAL:"チャイナエアライン", EVA:"エバー航空", CPA:"キャセイパシフィック", HKE:"香港エクスプレス",
+  KAL:"大韓航空", AAR:"アシアナ航空", ABL:"エアプサン", JNA:"ジンエアー", TWB:"ティーウェイ航空",
+  SIA:"シンガポール航空", THA:"タイ国際航空", MAS:"マレーシア航空", GIA:"ガルーダ", AXM:"エアアジア",
+  PAL:"フィリピン航空", VJC:"ベトジェット", HVN:"ベトナム航空", QFA:"カンタス航空", ANZ:"NZ航空",
+  AFR:"エールフランス", DLH:"ルフトハンザ", BAW:"ブリティッシュ航空", KLM:"KLM", VIR:"ヴァージン",
+  UAE:"エミレーツ", QTR:"カタール航空", ETD:"エティハド", THY:"ターキッシュ", FIN:"フィンエアー",
+  SWR:"スイス航空", AUA:"オーストリア航空", SAS:"スカンジナビア航空",
+};
+function alName(code){ return AIRLINE[code] || code || ""; }
+
+function toMin(hhmm){const[h,m]=hhmm.split(":").map(Number);return h*60+m;}
+function inBand(min,a,b){return min>=toMin(a)&&min<toMin(b);}
+
+function decideOps(wind, deg, hhmm){
+  let mode = wind;
+  if(wind==="auto"){
+    if(deg==null||isNaN(deg)) mode="north";
+    else mode = (deg>90 && deg<270) ? "south" : "north";
+  }
+  const min = toMin(hhmm);
+  if(mode==="south"){
+    if(inBand(min,"15:00","19:00")){
+      return {mode:"south",isNew:true,note:"南風・15〜19時の新飛行経路（都心上空を降下）",
+        arr:[{rwy:"C",dir:"16L"},{rwy:"A",dir:"16R"}], dep:[{rwy:"A",dir:"16R"},{rwy:"B",dir:"22"}]};
+    }
+    return {mode:"south",isNew:false,note:"南風・従来経路（海側から進入）",
+      arr:[{rwy:"B",dir:"22"},{rwy:"D",dir:"23"}], dep:[{rwy:"C",dir:"16L"},{rwy:"A",dir:"16R"}]};
+  }
+  const isNewN = inBand(min,"7:00","11:30")||inBand(min,"15:00","19:00");
+  return {mode:"north",isNew:isNewN,
+    note:isNewN?"北風・時間帯運用（着陸34L/34R・出発C/D）":"北風・従来運用（着陸34L/34R・出発05/34R）",
+    arr:[{rwy:"A",dir:"34L"},{rwy:"C",dir:"34R"}], dep:[{rwy:"D",dir:"05"},{rwy:"C",dir:"34R"}]};
+}
+function assignRwy(list, flight, idx){
+  if(list.length===1) return {...list[0], est:false};
+  let h=0; const s=flight.fl||("x"+idx);
+  for(const c of s) h=(h*31+c.charCodeAt(0))>>>0;
+  return {...list[h%list.length], est:true};
+}
+
+/* ===== サンプルダイヤ（公式取込が無い時のフォールバック） ===== */
+const SAMPLE = [
+  ["arr","06:55","NH472","伊丹"],["arr","09:15","JL306","福岡"],["arr","13:10","NH988","香港"],
+  ["arr","14:35","NH060","那覇"],["arr","16:50","UA837","サンフランシスコ"],["arr","19:05","JL414","ロンドン"],
+  ["dep","06:00","NH471","伊丹"],["dep","11:20","NH987","香港"],["dep","16:00","NH105","ロサンゼルス"],
+  ["dep","18:40","JL413","ロンドン"],["dep","22:00","NH159","ソウル"],
+].map(r=>({type:r[0],time:r[1],fl:r[2],ap:r[3],region:"dom"}));
+
+/* ===== 状態 ===== */
+let DATA, dataSource;
+const saved = load();
+if(saved){ DATA = saved; dataSource = {kind:"manual"}; }
+else if(window.HND_FLIGHTS && window.HND_FLIGHTS.flights){
+  DATA = window.HND_FLIGHTS.flights; dataSource = {kind:"official", meta:window.HND_FLIGHTS};
+}else{ DATA = SAMPLE.slice(); dataSource = {kind:"sample"}; }
+let curTab = "arr", curReg = "all", curRwy = "all";  // curTab: arr|dep|rwy
+
+function load(){try{const s=localStorage.getItem("hnd_data");return s?JSON.parse(s):null;}catch(e){return null;}}
+function save(){localStorage.setItem("hnd_data",JSON.stringify(DATA));}
+
+/* ===== ヘルパ ===== */
+const $=id=>document.getElementById(id);
+function getWind(){return {wind:document.querySelector("#windSeg button.on").dataset.w, deg:parseFloat($("deg").value)};}
+function currentOps(){const {wind,deg}=getWind();return decideOps(wind,deg,$("time").value||"12:00");}
+function absMin(dateStr, hhmm){
+  const s=(dateStr||"").replace(/-/g,"");
+  const y=+s.slice(0,4), mo=+s.slice(4,6)-1, d=+s.slice(6,8);
+  const [h,mi]=(hhmm||"00:00").split(":").map(Number);
+  return Math.floor(new Date(y,mo,d,h,mi).getTime()/60000);
+}
+function ymd(dateStr){return (dateStr||"").replace(/-/g,"").slice(0,8);}
+const WD=["日","月","火","水","木","金","土"];
+
+/* ===== 便のステータス表示を組み立て ===== */
+const validHHMM = s => /^\d{1,2}:\d{2}$/.test(s||"");
+function isDelayedF(f){return (f.cat||"").toLowerCase()==="delayed" || (f.status||"").indexOf("遅延")>=0;}
+function isCanceledF(f){return (f.cat||"").toLowerCase()==="canceled" || (f.status||"").indexOf("欠航")>=0;}
+function statusCell(f){
+  const stx=f.status||"";
+  const reason = f.reason?`<span class="reason">${f.reason}</span>`:"";
+  if(isCanceledF(f)) return `<span class="st canceled">欠航 CANCELED${reason||'<span class="reason">理由未公表</span>'}</span>`;
+  if(isDelayedF(f)){
+    const to = validHHMM(f.rev)?` → ${f.rev}`:"";
+    return `<span class="st delay">遅延 DELAYED${to}${reason||'<span class="reason">理由未公表</span>'}</span>`;
+  }
+  // departed/arrived や 搭乗手続き中/手荷物引渡中 等の進行状況はグレー表示
+  if(stx) return `<span class="st dep">${stx}</span>`;
+  return `<span class="st ontime">定刻 ON TIME</span>`;
+}
+
+/* ===== 描画 ===== */
+function renderOps(){
+  const ops=currentOps();
+  const badge=$("opBadge"), note=$("opNote"), box=$("rwyBox");
+  const name={north:"NORTH 北風運用",south:"SOUTH 南風運用"}[ops.mode];
+  badge.textContent=name+(ops.isNew?"（時間帯運用）":"");
+  note.textContent=ops.note;
+  box.innerHTML="";
+  const add=(title,list)=>list.forEach(x=>{
+    const d=document.createElement("div");
+    d.className="rwytile "+RWY[x.rwy].cls;
+    d.innerHTML=`<div class="k">${title}</div><b>${RWY[x.rwy].label}滑走路</b> <span class="k">RWY ${x.dir}</span>`;
+    box.appendChild(d);
+  });
+  add("着陸",ops.arr); add("出発",ops.dep);
+  // 滑走路ボタンの役割表示（現在の運用ベース）
+  const arrSet=new Set(ops.arr.map(x=>x.rwy)), depSet=new Set(ops.dep.map(x=>x.rwy));
+  ["A","B","C","D"].forEach(rw=>{
+    const el=$("role"+rw); if(!el)return;
+    const a=arrSet.has(rw), d=depSet.has(rw);
+    el.textContent = a&&d?"着発" : a?"着" : d?"発" : "－";
+    el.style.color = a&&d?"var(--white)" : a?"var(--green)" : d?"var(--amber)" : "var(--dim)";
+  });
+  renderTable();
+}
+
+function renderTable(){
+  const thead=$("tbl").querySelector("thead");
+  const tbody=$("tbl").querySelector("tbody");
+  const {wind,deg}=getWind();
+  const baseDate=$("date").value;
+  const baseAbs=absMin(baseDate, $("time").value||"12:00");
+  const windowOn=$("onlyFuture").checked;
+  const baseDay=ymd(baseDate);
+  const isRwyView = curTab==="rwy";
+  const isArr = curTab==="arr";
+
+  // 対象便を集める（滑走路別は発着両方）
+  let list=DATA.filter(d=>d.time && (isRwyView ? true : d.type===(isArr?"arr":"dep")));
+  if(curReg!=="all") list=list.filter(d=>(d.region||"dom")===curReg);
+  // 各便に通算分＋予測滑走路を付与
+  list.forEach((f,i)=>{
+    f._abs=absMin(f.date||baseDay, f.time);
+    const fops=decideOps(wind, deg, f.time);
+    f._a = assignRwy(f.type==="arr"?fops.arr:fops.dep, f, i);
+  });
+  list.sort((a,b)=>a._abs-b._abs);
+  if(windowOn) list=list.filter(f=> f._abs>=baseAbs && f._abs<=baseAbs+720);
+  if(isRwyView && curRwy!=="all") list=list.filter(f=> f._a.rwy===curRwy);
+
+  if(isRwyView){
+    thead.innerHTML=`<tr><th>TIME</th><th>発着</th><th>FLIGHT / 航空会社・機材</th><th>都市</th><th>RWY 予測</th><th>STATUS</th></tr>`;
+  }else{
+    thead.innerHTML=`<tr><th>TIME 時刻</th><th>FLIGHT / 航空会社・機材</th><th>${isArr?"ORIGIN 出発地":"DEST 行き先"}</th><th>GATE</th><th>RWY 予測</th><th>STATUS 状況</th></tr>`;
+  }
+  tbody.innerHTML="";
+  const COLS=6;
+  let shownNow=false, lastDay=null;
+  list.forEach((f)=>{
+    const fday=f.date||baseDay;
+    if(fday!==lastDay){
+      lastDay=fday;
+      const isNext=fday>baseDay;
+      const tr=document.createElement("tr");
+      tr.className="daysep"+(isNext?" next":"");
+      const wd=WD[new Date(+fday.slice(0,4),+fday.slice(4,6)-1,+fday.slice(6,8)).getDay()];
+      tr.innerHTML=`<td colspan="${COLS}">${isNext?"▶ 翌日 / NEXT DAY　":""}${+fday.slice(4,6)}/${+fday.slice(6,8)}（${wd}）</td>`;
+      tbody.appendChild(tr);
+    }
+    const a=f._a;
+    const isCanceled = isCanceledF(f);
+    const tr=document.createElement("tr");
+    if(isCanceled) tr.className="canceled";
+    if(!shownNow && f._abs>=baseAbs){ tr.classList.add("now"); shownNow=true; }
+    const rev=(isDelayedF(f) && validHHMM(f.rev))?`<div class="t-rev">→ ${f.rev}</div>`:"";
+    const cs=(f.cs&&f.cs.length)?`<span class="t-cs"> /${f.cs[0]}</span>`:"";
+    const via=f.via?`<div class="t-via">経由 ${f.via}</div>`:"";
+    // 便名セル：便名＋航空会社名＋機材
+    const alLine=`<div class="t-al">${alName(f.al)}${f.actype?` ・ ✈${f.actype}`:""}</div>`;
+    const flCell=`<span class="t-fl">${f.fl||""}</span>${cs}${alLine}`;
+    const rwy=isCanceled?`<span class="est">—</span>`
+      :`<span class="rwybox ${RWY[a.rwy].pill}">${RWY[a.rwy].label} ${a.dir}</span>${a.est?'<span class="est"> 目安</span>':''}`;
+    if(isRwyView){
+      const dir = f.type==="arr"
+        ? `<span class="dir arr">🛬 着</span>` : `<span class="dir dep">🛫 発</span>`;
+      tr.innerHTML=`
+        <td><span class="t-time">${f.time}</span>${rev}</td>
+        <td>${dir}</td>
+        <td>${flCell}</td>
+        <td><span class="t-dest">${f.ap||f.code||""}</span>${via}</td>
+        <td>${rwy}</td>
+        <td>${statusCell(f)}</td>`;
+    }else{
+      tr.innerHTML=`
+        <td><span class="t-time">${f.time}</span>${rev}</td>
+        <td>${flCell}</td>
+        <td><span class="t-dest">${f.ap||f.code||""}</span>${via}</td>
+        <td><div class="t-gate">${f.gate||"–"}</div><div class="t-term">${f.term||""}</div></td>
+        <td>${rwy}</td>
+        <td>${statusCell(f)}</td>`;
+    }
+    tbody.appendChild(tr);
+  });
+  if(list.length===0) tbody.innerHTML=`<tr><td colspan="${COLS}" style="color:var(--dim);padding:16px;text-align:center">該当便なし（フィルタ/時刻/風向を確認）</td></tr>`;
+}
+
+function renderBanner(){
+  const b=$("srcBanner");
+  if(dataSource.kind==="official"){
+    const m=dataSource.meta;
+    const range=(m.days&&m.days.length>1)?`${m.days[0]}〜${m.days[m.days.length-1]}`:m.date;
+    b.innerHTML=`● LIVE 羽田公式ダイヤ ${range}（${m.count}便） 取得 ${m.fetchedAt}`;
+  }else if(dataSource.kind==="manual"){ b.innerHTML=`✏ 手動データ（${DATA.length}便）`; }
+  else{ b.innerHTML=`⚠ サンプル表示中。最新化は <code>python3 fetch_haneda.py</code>`; }
+}
+
+/* ===== 滑走路 配置図 ===== */
+function highlightMap(){
+  const ops=currentOps();
+  const arrSet=new Set(ops.arr.map(x=>x.rwy)), depSet=new Set(ops.dep.map(x=>x.rwy));
+  ["A","B","C","D"].forEach(rw=>{
+    const el=document.getElementById("map"+rw); if(!el)return;
+    const active = arrSet.has(rw)||depSet.has(rw);
+    const selected = curTab==="rwy" && curRwy===rw;
+    el.style.opacity = active?"1":"0.28";
+    el.setAttribute("stroke-width", selected?"14":"9");
+    el.style.filter = selected?"drop-shadow(0 0 5px currentColor)":"none";
+  });
+  // 凡例（現在の運用での役割）
+  const lg=document.getElementById("mapLegend");
+  const col={A:"#5aa9ff",B:"#f7b733",C:"#b58bff",D:"#37e07a"};
+  lg.innerHTML=["A","B","C","D"].map(rw=>{
+    const a=arrSet.has(rw), d=depSet.has(rw);
+    const role=a&&d?"着陸・出発":a?"着陸":d?"出発":"現在未使用";
+    return `<span class="lg" style="border-left:3px solid ${col[rw]}"><b>${rw}</b> ${role}</span>`;
+  }).join("");
+}
+$("openMap").onclick=()=>{ highlightMap(); $("mapModal").style.display="flex"; };
+$("closeMap").onclick=()=>{ $("mapModal").style.display="none"; };
+$("mapModal").onclick=(e)=>{ if(e.target===$("mapModal")) $("mapModal").style.display="none"; };
+// 地図上の滑走路をタップ → その滑走路の発着一覧へ
+["A","B","C","D"].forEach(rw=>{
+  const el=document.getElementById("map"+rw); if(!el)return;
+  el.style.cursor="pointer";
+  el.onclick=()=>{ setView("rwy"); curRwy=rw;
+    document.querySelectorAll("#rwySeg button").forEach(x=>x.classList.toggle("on",x.dataset.rw===rw));
+    $("mapModal").style.display="none"; renderOps(); };
+});
+
+/* ===== 更新ボタン ===== */
+$("refreshBtn").onclick=async()=>{
+  const b=$("refreshBtn"); const old=b.textContent;
+  b.textContent="更新中…"; b.disabled=true;
+  try{
+    if(location.protocol.startsWith("http")){
+      const r=await fetch("/api/update",{cache:"no-store"});
+      const j=await r.json();
+      if(!j.ok) throw new Error(j.error||"取得に失敗しました");
+    }else{
+      throw new Error("file://で開いています");
+    }
+    saveUI(); location.reload();
+  }catch(e){
+    b.textContent=old; b.disabled=false;
+    alert("最新取得にはローカルサーバーが必要です。\n\nターミナルでこのフォルダに入り:\n    python3 server.py\nを実行し、ブラウザで http://localhost:8787 を開いてから\nこのボタンを押してください。\n\n（詳細: "+e.message+"）");
+  }
+};
+
+/* ===== 時計 ===== */
+function tick(){
+  const n=new Date();
+  const p=x=>String(x).padStart(2,"0");
+  $("clkTime").textContent=`${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
+  $("clkDate").textContent=`${n.getFullYear()}/${p(n.getMonth()+1)}/${p(n.getDate())} (${WD[n.getDay()]})`;
+}
+
+/* ===== イベント ===== */
+document.querySelectorAll("#windSeg button").forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll("#windSeg button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");$("degWrap").style.display=b.dataset.w==="auto"?"block":"none";renderOps();};
+});
+$("deg").oninput=renderOps; $("time").oninput=renderOps; $("date").oninput=renderOps;
+$("onlyFuture").onchange=renderOps;
+function setView(v){
+  curTab=v;
+  $("tabArr").classList.toggle("on",v==="arr");
+  $("tabDep").classList.toggle("on",v==="dep");
+  $("tabRwy").classList.toggle("on",v==="rwy");
+  $("rwySeg").style.display = v==="rwy" ? "flex" : "none";
+  renderOps();
+}
+$("tabArr").onclick=()=>setView("arr");
+$("tabDep").onclick=()=>setView("dep");
+$("tabRwy").onclick=()=>setView("rwy");
+document.querySelectorAll("#rwySeg button").forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll("#rwySeg button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");curRwy=b.dataset.rw;renderOps();};
+});
+document.querySelectorAll("#regSeg button").forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll("#regSeg button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");curReg=b.dataset.r;renderOps();};
+});
+$("applyJson").onclick=()=>{
+  try{const d=JSON.parse($("jsonIn").value);
+    DATA=d.map(x=>({type:x.type,time:x.time,fl:x.fl,ap:x.ap||x.city||"",code:x.from||x.to||x.code||"",
+      region:x.region||"dom",term:x.term||"",gate:x.gate||"",rev:x.rev||"",
+      status:x.status||"",reason:x.reason||"",cat:x.cat||"",cs:x.cs||[],via:x.via||"",date:x.date||""}));
+    dataSource={kind:"manual"};save();renderBanner();renderOps();alert("反映しました（"+DATA.length+"件）");
+  }catch(e){alert("JSON形式エラー: "+e.message);}
+};
+$("exportJson").onclick=()=>{$("jsonIn").value=JSON.stringify(DATA);};
+$("resetJson").onclick=()=>{localStorage.removeItem("hnd_data");
+  if(window.HND_FLIGHTS&&window.HND_FLIGHTS.flights){DATA=window.HND_FLIGHTS.flights;dataSource={kind:"official",meta:window.HND_FLIGHTS};}
+  else{DATA=SAMPLE.slice();dataSource={kind:"sample"};}
+  renderBanner();renderOps();alert("戻しました");};
+
+/* ===== UI状態の保存/復元（自動リロードでも維持） ===== */
+function saveUI(){
+  sessionStorage.setItem("hnd_ui", JSON.stringify({
+    tab:curTab, reg:curReg, rwy:curRwy, future:$("onlyFuture").checked,
+    wind:document.querySelector("#windSeg button.on").dataset.w, deg:$("deg").value
+  }));
+}
+function restoreUI(){
+  try{
+    const u=JSON.parse(sessionStorage.getItem("hnd_ui")||"null"); if(!u)return;
+    curTab=u.tab||"arr"; curReg=u.reg||"all"; curRwy=u.rwy||"all";
+    $("tabArr").classList.toggle("on",curTab==="arr"); $("tabDep").classList.toggle("on",curTab==="dep");
+    $("tabRwy").classList.toggle("on",curTab==="rwy");
+    $("rwySeg").style.display = curTab==="rwy" ? "flex" : "none";
+    document.querySelectorAll("#rwySeg button").forEach(b=>b.classList.toggle("on",b.dataset.rw===curRwy));
+    document.querySelectorAll("#regSeg button").forEach(b=>b.classList.toggle("on",b.dataset.r===curReg));
+    $("onlyFuture").checked = u.future!==false;
+    if(u.wind){document.querySelectorAll("#windSeg button").forEach(b=>b.classList.toggle("on",b.dataset.w===u.wind));
+      $("degWrap").style.display=u.wind==="auto"?"block":"none";}
+    if(u.deg) $("deg").value=u.deg;
+  }catch(e){}
+}
+
+/* ===== 初期化 ===== */
+(function init(){
+  restoreUI();
+  const now=new Date();
+  let d=now.toISOString().slice(0,10);
+  if(dataSource.kind==="official" && /^\d{8}$/.test(dataSource.meta.date)){
+    const s=dataSource.meta.date; d=`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  }
+  $("date").value=d;
+  $("time").value=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  tick(); setInterval(tick,1000);
+  renderBanner(); renderOps();
+
+  // 5分ごとに自動リロード → 最新の flights_data.js を読み直す（基準時刻も現在へ更新）
+  window.addEventListener("beforeunload", saveUI);
+  setInterval(()=>{ saveUI(); location.reload(); }, 5*60*1000);
+})();
+</script>
+</body>
+</html>
