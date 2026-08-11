@@ -70,9 +70,10 @@ def convert(rec, region, direction, day):
         reason = s.get("reason", "") or ""      # 欠航・遅延の理由
         category = s.get("category", "") or ""  # departed / canceled / delayed ...
     # ゲート番号（搭乗口）を options から抽出
+    # 国内線は type=gate、国際線は type=gateDep(出発)/gateArr(到着)
     gate = ""
     for opt in (rec.get("options") or []):
-        if isinstance(opt, dict) and opt.get("type") == "gate":
+        if isinstance(opt, dict) and opt.get("type") in ("gate", "gateDep", "gateArr"):
             items = opt.get("items") or []
             if items:
                 gate = items[0].get("name", "") or ""
@@ -94,6 +95,27 @@ def convert(rec, region, direction, day):
         "reason": reason,                 # 欠航・遅延の理由
         "cat": category,                  # departed/canceled/delayed...
     }
+
+
+def fetch_metar():
+    """羽田(RJTT)の実況気象から風向・風速を取得（aviationweather.gov・キー不要）。
+    失敗しても None を返すだけでダイヤ取得は続行する。"""
+    url = "https://aviationweather.gov/api/data/metar?ids=RJTT&format=json"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": HEADERS["User-Agent"]})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.load(r)
+        if data:
+            m = data[0]
+            return {
+                "wdir": m.get("wdir"),          # 風向（度・磁方位）
+                "wspd": m.get("wspd"),          # 風速（kt）
+                "raw": m.get("rawOb", ""),
+                "reportTime": m.get("reportTime", ""),
+            }
+    except Exception as e:
+        print(f"  METAR取得失敗（風向は手動設定のまま）: {type(e).__name__} {e}")
+    return None
 
 
 def main():
@@ -121,11 +143,16 @@ def main():
         return (f["date"], 0 if f["type"] == "arr" else 1, f["time"] or "99:99")
     all_flights.sort(key=sk)
 
+    metar = fetch_metar()
+    if metar:
+        print(f"  METAR: 風向{metar['wdir']}° 風速{metar['wspd']}kt")
+
     payload = {
         "date": start,
         "days": days,
         "fetchedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
         "count": len(all_flights),
+        "metar": metar,
         "flights": all_flights,
     }
     js = "// 自動生成: fetch_haneda.py\n" \

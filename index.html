@@ -129,7 +129,7 @@
   <div class="top">
     <div>
       <div class="en">✈ HANEDA · FLIGHT INFORMATION</div>
-      <h1>羽田空港 発着案内 <span style="font-size:12px;color:var(--dim)">滑走路予測つき</span></h1>
+      <h1>羽田空港 発着案内 <span style="font-size:12px;color:var(--dim)">滑走路シミュレーションつき</span></h1>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
       <button id="refreshBtn" class="refresh">🔄 更新</button>
@@ -210,7 +210,7 @@
   </div>
 
   <div class="foot">
-    ※ 滑走路（RWY）は国交省公開の運用パターンからの<b>予測・目安</b>です（便ごとの割当は管制判断）。TIME=定刻、赤字=変更/欠航。STATUS の理由は羽田公式データより。
+    ※ 滑走路（RWY）欄は<b>シミュレーション表示</b>です。国交省公開の運用パターン（風向・時間帯）から推定したもので、<b>実際の使用滑走路の実測データではありません</b>。2本併用時の便ごとの振り分けは機械的な目安であり、実運用は管制判断で変わります。TIME=定刻、赤字=変更/欠航。STATUS は羽田公式データより（空欄の便は「予定」表示）。
   </div>
 
   <!-- 滑走路 配置図モーダル -->
@@ -243,11 +243,11 @@
         <circle cx="182" cy="62" r="11" fill="#291d45" stroke="#b58bff"/><text x="182" y="66" fill="#d3b8ff" font-size="12" font-weight="700" text-anchor="middle">C</text>
         <text x="226" y="66" fill="#7f93b5" font-size="10">16L</text>
         <text x="226" y="258" fill="#7f93b5" font-size="10">34R</text>
-        <!-- B滑走路 04/22 (NE-SW) -->
-        <line id="mapB" x1="112" y1="322" x2="252" y2="188" stroke="#f7b733" stroke-width="9" stroke-linecap="round"/>
-        <circle cx="98" cy="330" r="11" fill="#3a2c0a" stroke="#f7b733"/><text x="98" y="334" fill="#ffd97a" font-size="12" font-weight="700" text-anchor="middle">B</text>
-        <text x="90" y="316" fill="#7f93b5" font-size="10">04</text>
-        <text x="258" y="184" fill="#7f93b5" font-size="10">22</text>
+        <!-- B滑走路 04/22 (南西側・SW-NE。A/Cとは交差しない) -->
+        <line id="mapB" x1="82" y1="345" x2="172" y2="238" stroke="#f7b733" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="68" cy="352" r="11" fill="#3a2c0a" stroke="#f7b733"/><text x="68" y="356" fill="#ffd97a" font-size="12" font-weight="700" text-anchor="middle">B</text>
+        <text x="88" y="362" fill="#7f93b5" font-size="10">04</text>
+        <text x="178" y="234" fill="#7f93b5" font-size="10">22</text>
         <!-- D滑走路 05/23 (沖合・ENE-WSW) -->
         <line id="mapD" x1="208" y1="345" x2="342" y2="312" stroke="#37e07a" stroke-width="9" stroke-linecap="round"/>
         <circle cx="196" cy="356" r="11" fill="#0d3324" stroke="#37e07a"/><text x="196" y="360" fill="#86e6b6" font-size="12" font-weight="700" text-anchor="middle">D</text>
@@ -350,7 +350,18 @@ function save(){localStorage.setItem("hnd_data",JSON.stringify(DATA));}
 
 /* ===== ヘルパ ===== */
 const $=id=>document.getElementById(id);
-function getWind(){return {wind:document.querySelector("#windSeg button.on").dataset.w, deg:parseFloat($("deg").value)};}
+// fetch_haneda.py がデータ取得時に埋め込んだ羽田METAR実況（無ければnull）
+const METAR = (window.HND_FLIGHTS && window.HND_FLIGHTS.metar) || null;
+function getWind(){
+  const wind=document.querySelector("#windSeg button.on").dataset.w;
+  let deg=parseFloat($("deg").value);
+  // 「自動」で手入力が無ければMETAR実測風向を使う
+  if(isNaN(deg) && METAR && METAR.wdir!=null) deg=METAR.wdir;
+  return {wind, deg};
+}
+if(METAR && METAR.wdir!=null){
+  $("deg").placeholder=`未入力ならMETAR実測 ${METAR.wdir}° を使用`;
+}
 function currentOps(){const {wind,deg}=getWind();return decideOps(wind,deg,$("time").value||"12:00");}
 function absMin(dateStr, hhmm){
   const s=(dateStr||"").replace(/-/g,"");
@@ -375,7 +386,8 @@ function statusCell(f){
   }
   // departed/arrived や 搭乗手続き中/手荷物引渡中 等の進行状況はグレー表示
   if(stx) return `<span class="st dep">${stx}</span>`;
-  return `<span class="st ontime">定刻 ON TIME</span>`;
+  // 公式statusが空の便を「定刻」と断定しない（未確報の予定扱い）
+  return `<span class="st ontime">予定 SCHEDULED</span>`;
 }
 
 /* ===== 描画 ===== */
@@ -429,9 +441,9 @@ function renderTable(){
   if(isRwyView && curRwy!=="all") list=list.filter(f=> f._a.rwy===curRwy);
 
   if(isRwyView){
-    thead.innerHTML=`<tr><th>TIME</th><th>発着</th><th>FLIGHT / 航空会社・機材</th><th>都市</th><th>RWY 予測</th><th>STATUS</th></tr>`;
+    thead.innerHTML=`<tr><th>TIME</th><th>発着</th><th>FLIGHT / 航空会社・機材</th><th>都市</th><th>RWY 想定※</th><th>STATUS</th></tr>`;
   }else{
-    thead.innerHTML=`<tr><th>TIME 時刻</th><th>FLIGHT / 航空会社・機材</th><th>${isArr?"ORIGIN 出発地":"DEST 行き先"}</th><th>GATE</th><th>RWY 予測</th><th>STATUS 状況</th></tr>`;
+    thead.innerHTML=`<tr><th>TIME 時刻</th><th>FLIGHT / 航空会社・機材</th><th>${isArr?"ORIGIN 出発地":"DEST 行き先"}</th><th>GATE</th><th>RWY 想定※</th><th>STATUS 状況</th></tr>`;
   }
   tbody.innerHTML="";
   const COLS=6;
@@ -489,7 +501,8 @@ function renderBanner(){
   if(dataSource.kind==="official"){
     const m=dataSource.meta;
     const range=(m.days&&m.days.length>1)?`${m.days[0]}〜${m.days[m.days.length-1]}`:m.date;
-    b.innerHTML=`● LIVE 羽田公式ダイヤ ${range}（${m.count}便） 取得 ${m.fetchedAt}`;
+    const w=(m.metar&&m.metar.wdir!=null)?` ／ 風 ${m.metar.wdir}°${m.metar.wspd!=null?` ${m.metar.wspd}kt`:""}（取得時METAR）`:"";
+    b.innerHTML=`● LIVE 羽田公式ダイヤ ${range}（${m.count}便） 取得 ${m.fetchedAt}${w}`;
   }else if(dataSource.kind==="manual"){ b.innerHTML=`✏ 手動データ（${DATA.length}便）`; }
   else{ b.innerHTML=`⚠ サンプル表示中。最新化は <code>python3 fetch_haneda.py</code>`; }
 }
@@ -527,7 +540,10 @@ $("mapModal").onclick=(e)=>{ if(e.target===$("mapModal")) $("mapModal").style.di
     $("mapModal").style.display="none"; renderOps(); };
 });
 
-/* ===== 更新ボタン ===== */
+/* ===== 更新ボタン =====
+   /api/update は server.py(ローカル)のみ実装。Vercel等の静的ホスティングでは404になるため非表示。 */
+const IS_LOCAL = ["localhost","127.0.0.1"].includes(location.hostname);
+if(!IS_LOCAL) $("refreshBtn").style.display="none";
 $("refreshBtn").onclick=async()=>{
   const b=$("refreshBtn"); const old=b.textContent;
   b.textContent="更新中…"; b.disabled=true;
