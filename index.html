@@ -549,15 +549,17 @@ $("refreshBtn").onclick=async()=>{
   b.textContent="更新中…"; b.disabled=true;
   try{
     if(location.protocol.startsWith("http")){
-      const r=await fetch("/api/update",{cache:"no-store"});
+      const r=await fetch("/api/update",{method:"POST",cache:"no-store"});
       const j=await r.json();
       if(!j.ok) throw new Error(j.error||"取得に失敗しました");
+      if(j.warnings&&j.warnings.length) alert("更新は完了しましたが一部失敗があります:\n\n"+j.warnings.join("\n"));
     }else{
       throw new Error("file://で開いています");
     }
     saveUI(); location.reload();
   }catch(e){
     b.textContent=old; b.disabled=false;
+    if(/負荷配慮|実行中/.test(e.message)){ alert(e.message); return; }
     alert("最新取得にはローカルサーバーが必要です。\n\nターミナルでこのフォルダに入り:\n    python3 server.py\nを実行し、ブラウザで http://localhost:8787 を開いてから\nこのボタンを押してください。\n\n（詳細: "+e.message+"）");
   }
 };

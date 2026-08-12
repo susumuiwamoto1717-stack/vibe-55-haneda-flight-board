@@ -138,6 +138,14 @@ def main():
             except Exception as e:
                 print(f"  {region} {direction}: 取得失敗 {type(e).__name__} {e}")
 
+    # 仕様変更検知: 1件も取れなかった場合は既存の flights_data.js を壊さず異常終了。
+    # （非公開APIのため、エンドポイント変更やヘッダーチェック強化で突然0件になり得る）
+    if not all_flights:
+        sys.exit(
+            "❌ フライトが1件も取得できませんでした。既存の flights_data.js は変更しません。\n"
+            "   tokyo-haneda.com のAPI仕様が変わった可能性があります。"
+        )
+
     # 日付+時刻順にソート
     def sk(f):
         return (f["date"], 0 if f["type"] == "arr" else 1, f["time"] or "99:99")

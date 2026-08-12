@@ -9,20 +9,36 @@
     → ブラウザで http://localhost:8787 を開く
     停止は Ctrl+C
 
-ボタンを押すと /api/update が fetch_haneda.py（＋キーがあれば fetch_aircraft.py）を
+ボタンを押すと POST /api/update が fetch_haneda.py（＋キーがあれば fetch_aircraft.py）を
 実行して flights_data.js を再生成し、ページが最新を読み直す。
+公式APIへの負荷配慮のため、更新は最短 UPDATE_INTERVAL 秒に1回まで（超過は 429）。
 """
-import http.server, socketserver, subprocess, json, os, sys
+import http.server, socketserver, subprocess, json, os, sys, time, threading
 
 PORT = 8787
 ROOT = os.path.dirname(os.path.abspath(__file__)) or "."
 os.chdir(ROOT)
 
+UPDATE_INTERVAL = 60  # 秒。これ未満の間隔での再更新は 429 で拒否
+_lock = threading.Lock()
+_last_update = 0.0
+
 
 def run_update():
+    """ダイヤ+機材を更新。戻り値: 警告メッセージのリスト（空なら完全成功）"""
+    warnings = []
     subprocess.run([sys.executable, "fetch_haneda.py"], check=True, cwd=ROOT)
     if os.environ.get("AERODATABOX_KEY") or os.path.exists("aerodatabox_key.txt"):
-        subprocess.run([sys.executable, "fetch_aircraft.py"], cwd=ROOT)
+        r = subprocess.run(
+            [sys.executable, "fetch_aircraft.py"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        if r.returncode != 0:
+            msg = (r.stderr or r.stdout or "").strip().splitlines()
+            tail = msg[-1] if msg else f"exit code {r.returncode}"
+            print(f"⚠ fetch_aircraft.py 失敗: {tail}", file=sys.stderr)
+            warnings.append(f"機材情報の更新に失敗しました: {tail}")
+    return warnings
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -31,20 +47,42 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store, max-age=0")
         super().end_headers()
 
-    def do_GET(self):
-        if self.path.split("?")[0] == "/api/update":
+    def _send_json(self, code, payload):
+        body = json.dumps(payload, ensure_ascii=False).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        global _last_update
+        if self.path.split("?")[0] != "/api/update":
+            self._send_json(404, {"ok": False, "error": "not found"})
+            return
+        if not _lock.acquire(blocking=False):
+            self._send_json(429, {"ok": False, "error": "更新処理が実行中です。"})
+            return
+        try:
+            wait = UPDATE_INTERVAL - (time.time() - _last_update)
+            if wait > 0:
+                self._send_json(429, {
+                    "ok": False,
+                    "error": f"公式APIへの負荷配慮のため、更新は{UPDATE_INTERVAL}秒に1回までです。あと{int(wait) + 1}秒お待ちください。",
+                })
+                return
             try:
-                run_update()
-                payload = {"ok": True}
-                code = 200
+                warnings = run_update()
+                _last_update = time.time()
+                self._send_json(200, {"ok": True, "warnings": warnings})
             except Exception as e:
-                payload = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-                code = 500
-            body = json.dumps(payload, ensure_ascii=False).encode()
-            self.send_response(code)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(body)
+                self._send_json(500, {"ok": False, "error": f"{type(e).__name__}: {e}"})
+        finally:
+            _lock.release()
+
+    def do_GET(self):
+        # /api/update は POST 限定（<img> やプリフェッチ等での意図しない起動を防ぐ）
+        if self.path.split("?")[0] == "/api/update":
+            self._send_json(405, {"ok": False, "error": "POST を使ってください。"})
             return
         return super().do_GET()
 
