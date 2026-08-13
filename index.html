@@ -222,38 +222,42 @@
       </div>
       <svg id="rwyMap" viewBox="0 0 360 380" xmlns="http://www.w3.org/2000/svg">
         <rect x="0" y="0" width="360" height="380" fill="#08111f"/>
-        <!-- 本土（西側） -->
-        <path d="M0,0 L110,0 Q70,110 120,200 Q80,300 55,380 L0,380 Z" fill="#0d1b2c"/>
-        <text x="20" y="200" fill="#42506e" font-size="11" transform="rotate(-90 20,200)">本土（大田区）側</text>
+        <!-- 周辺の島（北西側） -->
+        <path d="M120,0 L235,0 L215,34 L128,30 Z" fill="#0d1b2c"/>
+        <text x="160" y="20" fill="#42506e" font-size="10">城南島</text>
+        <path d="M30,40 L110,44 L96,86 L20,80 Z" fill="#0d1b2c"/>
+        <text x="48" y="66" fill="#42506e" font-size="10">京浜島</text>
+        <!-- 空港島の輪郭（略形） -->
+        <path d="M70,110 L240,60 L340,240 L330,340 L190,340 L60,320 Z" fill="#0b1626" stroke="#1c2740"/>
         <!-- 東京湾 -->
-        <text x="270" y="60" font-size="11" fill="#33507a">東京湾</text>
+        <text x="290" y="52" font-size="11" fill="#33507a">東京湾</text>
         <!-- 方位 -->
-        <g transform="translate(330,32)">
+        <g transform="translate(332,26)">
           <line x1="0" y1="14" x2="0" y2="-8" stroke="#f7b733" stroke-width="2"/>
           <path d="M0,-12 L4,-4 L-4,-4 Z" fill="#f7b733"/>
           <text x="-4" y="26" fill="#f7b733" font-size="11" font-weight="700">N</text>
         </g>
-        <!-- A滑走路 16R/34L -->
-        <line id="mapA" x1="122" y1="70" x2="140" y2="250" stroke="#5aa9ff" stroke-width="9" stroke-linecap="round"/>
-        <circle cx="106" cy="62" r="11" fill="#12314f" stroke="#5aa9ff"/><text x="106" y="66" fill="#9cd0ff" font-size="12" font-weight="700" text-anchor="middle">A</text>
-        <text x="150" y="66" fill="#7f93b5" font-size="10">16R</text>
-        <text x="150" y="258" fill="#7f93b5" font-size="10">34L</text>
-        <!-- C滑走路 16L/34R -->
-        <line id="mapC" x1="198" y1="70" x2="216" y2="250" stroke="#b58bff" stroke-width="9" stroke-linecap="round"/>
-        <circle cx="182" cy="62" r="11" fill="#291d45" stroke="#b58bff"/><text x="182" y="66" fill="#d3b8ff" font-size="12" font-weight="700" text-anchor="middle">C</text>
-        <text x="226" y="66" fill="#7f93b5" font-size="10">16L</text>
-        <text x="226" y="258" fill="#7f93b5" font-size="10">34R</text>
-        <!-- B滑走路 04/22 (南西側・SW-NE。A/Cとは交差しない) -->
-        <line id="mapB" x1="82" y1="345" x2="172" y2="238" stroke="#f7b733" stroke-width="9" stroke-linecap="round"/>
-        <circle cx="68" cy="352" r="11" fill="#3a2c0a" stroke="#f7b733"/><text x="68" y="356" fill="#ffd97a" font-size="12" font-weight="700" text-anchor="middle">B</text>
-        <text x="88" y="362" fill="#7f93b5" font-size="10">04</text>
-        <text x="178" y="234" fill="#7f93b5" font-size="10">22</text>
-        <!-- D滑走路 05/23 (沖合・ENE-WSW) -->
-        <line id="mapD" x1="208" y1="345" x2="342" y2="312" stroke="#37e07a" stroke-width="9" stroke-linecap="round"/>
-        <circle cx="196" cy="356" r="11" fill="#0d3324" stroke="#37e07a"/><text x="196" y="360" fill="#86e6b6" font-size="12" font-weight="700" text-anchor="middle">D</text>
-        <text x="196" y="336" fill="#7f93b5" font-size="10">05</text>
-        <text x="330" y="304" fill="#7f93b5" font-size="10">23</text>
-        <text x="250" y="360" fill="#33507a" font-size="10">多摩川河口／沖合</text>
+        <!-- A滑走路 16R/34L（北西→南東。Bと交差してX字） -->
+        <line id="mapA" x1="105" y1="95" x2="180" y2="295" stroke="#5aa9ff" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="88" cy="88" r="11" fill="#12314f" stroke="#5aa9ff"/><text x="88" y="92" fill="#9cd0ff" font-size="12" font-weight="700" text-anchor="middle">A</text>
+        <text x="112" y="82" fill="#ff8080" font-size="10" font-weight="700">16R</text>
+        <text x="184" y="312" fill="#ff8080" font-size="10" font-weight="700">34L</text>
+        <!-- B滑走路 04/22（南西→北東。Aと中央で交差） -->
+        <line id="mapB" x1="58" y1="292" x2="200" y2="120" stroke="#f7b733" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="44" cy="300" r="11" fill="#3a2c0a" stroke="#f7b733"/><text x="44" y="304" fill="#ffd97a" font-size="12" font-weight="700" text-anchor="middle">B</text>
+        <text x="48" y="322" fill="#ff8080" font-size="10" font-weight="700">04</text>
+        <text x="205" y="112" fill="#ff8080" font-size="10" font-weight="700">22</text>
+        <!-- C滑走路 16L/34R（東側・Aと平行。交差なし） -->
+        <line id="mapC" x1="250" y1="105" x2="325" y2="305" stroke="#b58bff" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="233" cy="98" r="11" fill="#291d45" stroke="#b58bff"/><text x="233" y="102" fill="#d3b8ff" font-size="12" font-weight="700" text-anchor="middle">C</text>
+        <text x="257" y="92" fill="#ff8080" font-size="10" font-weight="700">16L</text>
+        <text x="329" y="322" fill="#ff8080" font-size="10" font-weight="700">34R</text>
+        <!-- D滑走路 05/23（南東沖の独立した島・Bとほぼ平行） -->
+        <path d="M232,362 L330,262 L352,282 L254,382 Z" fill="#0b1626" stroke="#1c2740"/>
+        <line id="mapD" x1="252" y1="358" x2="336" y2="272" stroke="#37e07a" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="240" cy="368" r="11" fill="#0d3324" stroke="#37e07a"/><text x="240" y="372" fill="#86e6b6" font-size="12" font-weight="700" text-anchor="middle">D</text>
+        <text x="258" y="376" fill="#ff8080" font-size="10" font-weight="700">05</text>
+        <text x="338" y="266" fill="#ff8080" font-size="10" font-weight="700">23</text>
       </svg>
       <div id="mapLegend" class="maplegend"></div>
       <div class="mapnote">※ 位置関係を表した略図です（正確な縮尺・形状ではありません）。太枠＝選択中の滑走路、色つき＝現在の運用で使用中。</div>
